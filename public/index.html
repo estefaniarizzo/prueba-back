@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Prueba - Fechas hábiles</title>
+    <style>
+      body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; background:#f6f8fa; color:#111; margin:0; padding:24px; }
+      .card{ max-width:760px; margin:36px auto; background:#fff; border-radius:10px; box-shadow:0 6px 18px rgba(18,22,26,0.08); padding:24px }
+      h1{ margin:0 0 8px 0; font-size:20px }
+      p.lead{ margin:0 0 16px 0; color:#444 }
+      label{ display:block; margin-top:12px; font-weight:600 }
+      input[type=text], input[type=number]{ width:100%; padding:8px 10px; margin-top:6px; border-radius:6px; border:1px solid #ddd }
+      button{ margin-top:12px; padding:10px 14px; border-radius:8px; border:0; background:#0b6cff; color:white; cursor:pointer }
+      pre{ background:#f3f6fb; padding:12px; border-radius:6px; overflow:auto }
+      .muted{ color:#666; font-size:13px }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Prueba técnica — Fechas hábiles</h1>
+      <p class="lead">Calcula una fecha final sumando días y/o horas hábiles según reglas: jornada 08:00–17:00, pausa 12:00–13:00, fines de semana y festivos.</p>
+
+      <label for="date">Fecha (UTC, con Z)</label>
+      <input id="date" type="text" placeholder="2025-04-10T15:00:00.000Z" />
+
+      <label for="days">Días hábiles a sumar</label>
+      <input id="days" type="number" min="0" placeholder="0" />
+
+      <label for="hours">Horas hábiles a sumar</label>
+      <input id="hours" type="number" min="0" placeholder="0" />
+
+      <button id="run">Calcular</button>
+
+      <h3>Resultado</h3>
+      <div id="out"><pre id="result">—</pre></div>
+
+      <p class="muted">Nota: en despliegue en Vercel la API está expuesta en <code>/api/business-days</code>.</p>
+    </div>
+
+    <script>
+      const run = document.getElementById('run');
+      const out = document.getElementById('result');
+
+      run.addEventListener('click', async () => {
+  let date = document.getElementById('date').value.trim();
+        const days = document.getElementById('days').value.trim();
+        const hours = document.getElementById('hours').value.trim();
+        const qs = new URLSearchParams();
+        // Normalize date input:
+        // - If user provided YYYY-MM-DD, convert to start of day UTC with Z
+        // - If user provided a timestamp without trailing Z, append Z
+        if (date) {
+          const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(date);
+          const hasZ = date.endsWith('Z');
+          const hasTime = /T\d{2}:\d{2}/.test(date);
+          if (dateOnly) {
+            // treat as midnight UTC
+            date = date + 'T00:00:00.000Z';
+          } else if (hasTime && !hasZ) {
+            date = date + 'Z';
+          }
+          qs.set('date', date);
+        }
+        if (days) qs.set('days', days);
+        if (hours) qs.set('hours', hours);
+        out.textContent = 'Cargando...';
+        try {
+          // Try Vercel-style serverless path first, then fall back to Express path
+          async function callEndpoints() {
+            const endpoints = ['/api/business-days', '/business-days'];
+            for (const ep of endpoints) {
+              try {
+                const res = await fetch(ep + '?' + qs.toString());
+                if (!res.ok) {
+                  // try next endpoint
+                  continue;
+                }
+                const ct = (res.headers.get('content-type') || '').toLowerCase();
+                if (ct.includes('application/json')) {
+                  return await res.json();
+                }
+                // If content-type is not json, check body for HTML (Live Server returns index.html)
+                const txt = await res.text();
+                if (!/^\s*</.test(txt)) {
+                  // body is not HTML, try to parse as JSON
+                  try { return JSON.parse(txt); } catch (_) { /* fallthrough */ }
+                }
+                // otherwise it's HTML, try next endpoint
+              } catch (err) {
+                // try next
+              }
+            }
+            throw new Error('No JSON response from backend endpoints');
+          }
+
+          const json = await callEndpoints();
+          out.textContent = JSON.stringify(json, null, 2);
+        } catch (e) {
+          out.textContent = 'Error: ' + (e && e.message ? e.message : e);
+        }
+      });
+    </script>
+  </body>
+</html>

@@ -5,6 +5,8 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 app.use(express.json());
+// Serve static UI from public/ so the root shows the demo page
+app.use(express.static('public'));
 app.use("/business-days", businessDaysRouter);
 
 app.listen(port, () => {
