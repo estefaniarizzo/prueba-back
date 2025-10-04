@@ -57,6 +57,16 @@ export async function getHolidays(): Promise<HolidaysSet> {
   return set;
 }
 
+// Test helper: clear the cached holidays (used by tests that mock getHolidays)
+export function clearHolidaysCache(): void {
+  holidaysCache.value = undefined;
+}
+
+// Test helper: set the cached holidays directly (used by tests for deterministic behavior)
+export function setHolidaysCache(set: HolidaysSet): void {
+  holidaysCache.value = set;
+}
+
 // Business hours constants (local Colombia time)
 const ZONE = 'America/Bogota';
 const MORNING_START = { hour: 8, minute: 0 };
@@ -138,17 +148,18 @@ function adjustToPreviousWorkingTime(dtLocal: DateTime, holidays: HolidaysSet): 
  */
 function addBusinessDays(dt: DateTime, days: number, holidays: HolidaysSet): DateTime {
   let result = dt;
-  for (let i = 0; i < days; i++) {
-    // move to next calendar day
+  let added = 0;
+  // Avanza al siguiente día hábil (no cuenta el día de inicio)
+  while (added < days) {
     result = result.plus({ days: 1 });
-    // find next working day
     while (!isWorkingDay(result, holidays)) {
       result = result.plus({ days: 1 });
     }
-    // preserve time-of-day; if time falls in lunch, map to 12:00 (per adjust behaviour initial)
-    if (inLunch(result)) {
-      result = result.set(MORNING_END);
-    }
+    added++;
+  }
+  // Si cae en almuerzo, ajusta a 12:00
+  if (inLunch(result)) {
+    result = result.set(MORNING_END);
   }
   return result;
 }
@@ -159,6 +170,7 @@ function addBusinessDays(dt: DateTime, days: number, holidays: HolidaysSet): Dat
 function addBusinessHours(dt: DateTime, hours: number, holidays: HolidaysSet): DateTime {
   let remaining = hours;
   let cursor = dt;
+
 
   // Helper to move cursor to next working period start if currently outside a working period
   const moveToNextWorkStart = (): void => {
@@ -209,6 +221,7 @@ function addBusinessHours(dt: DateTime, hours: number, holidays: HolidaysSet): D
   }
 
   while (remaining > 0) {
+    
     // If current day becomes non-working due to holiday/weekend, move to next working day morning
     if (!isWorkingDay(cursor, holidays)) {
       cursor = cursor.plus({ days: 1 }).set(MORNING_START);
@@ -236,6 +249,7 @@ function addBusinessHours(dt: DateTime, hours: number, holidays: HolidaysSet): D
       // move to next working day's morning
       cursor = cursor.plus({ days: 1 }).set(MORNING_START);
       while (!isWorkingDay(cursor, holidays)) cursor = cursor.plus({ days: 1 }).set(MORNING_START);
+      
       continue;
     }
 
@@ -253,20 +267,18 @@ function addBusinessHours(dt: DateTime, hours: number, holidays: HolidaysSet): D
 export async function calculateBusinessDate(start: DateTime, days: number, hours: number): Promise<DateTime> {
   const holidays = await getHolidays();
 
-  // work with a mutable local copy in Colombia zone
+  // Ajusta el inicio hacia atrás al horario laboral válido
   let cursor = start.setZone(ZONE);
-
-  // adjust backwards to nearest working time if needed
   cursor = adjustToPreviousWorkingTime(cursor, holidays);
 
-  // First add business days
+  // Suma días hábiles: siempre desde el siguiente día hábil
   if (days > 0) {
-    cursor = addBusinessDays(cursor, days, holidays);
+  cursor = addBusinessDays(cursor, days, holidays);
   }
 
-  // Then add business hours
+  // Suma horas hábiles sobre el resultado
   if (hours > 0) {
-    cursor = addBusinessHours(cursor, hours, holidays);
+  cursor = addBusinessHours(cursor, hours, holidays);
   }
 
   return cursor.setZone(ZONE);
