@@ -106,3 +106,6 @@ npm test
 - Despliegue actual: https://prueba-back-0slg.onrender.com
 
 
+Desarrollado por **Lina Rizo**  
+Full Stack Developer | TypeScript • Node.js • React • AWS  
+📍Colombia
