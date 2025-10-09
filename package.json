@@ -1,14 +1,14 @@
 {
   "name": "business-days-api",
   "version": "1.0.0",
-  "main": "dist/index.js",
+  "main": "dist/src/index.js",
   "license": "MIT",
   "scripts": {
     "dev": "ts-node-dev src/index.ts",
     "build": "tsc",
     "vercel-build": "tsc",
     "postinstall": "npm run build",
-    "start": "node ./dist/index.js",
+  "start": "node ./dist/src/index.js",
     "vercel:dev": "npx vercel dev",
     "test": "jest"
   },
