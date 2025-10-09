@@ -12,7 +12,7 @@ router.get('/', async (req: Request, res: Response) => {
   const dateParam = req.query.date as string | undefined;
 
   if (!daysParam && !hoursParam) {
-    const err: ApiResponseError = { error: 'InvalidParameters', message: 'At least one of days or hours must be provided' };
+    const err: ApiResponseError = { error: 'invalid_request', message: 'At least one of days or hours must be provided' };
     return res.status(400).json(err);
   }
 
@@ -20,7 +20,7 @@ router.get('/', async (req: Request, res: Response) => {
   const hours = hoursParam ? parseInt(hoursParam, 10) : 0;
 
   if ((daysParam && (isNaN(days) || days < 0)) || (hoursParam && (isNaN(hours) || hours < 0))) {
-    const err: ApiResponseError = { error: 'InvalidParameters', message: 'days and hours must be positive integers' };
+    const err: ApiResponseError = { error: 'invalid_request', message: 'days and hours must be non-negative integers' };
     return res.status(400).json(err);
   }
 
@@ -29,13 +29,13 @@ router.get('/', async (req: Request, res: Response) => {
     if (dateParam) {
       // must be an ISO string in UTC with trailing Z
       if (!dateParam.endsWith('Z')) {
-        const e: ApiResponseError = { error: 'InvalidParameters', message: 'date must be an ISO 8601 string in UTC ending with Z' };
+        const e: ApiResponseError = { error: 'invalid_request', message: 'date must be an ISO 8601 string in UTC ending with Z' };
         return res.status(400).json(e);
       }
 
       const parsed = DateTime.fromISO(dateParam, { zone: 'utc' });
       if (!parsed.isValid) {
-        const e: ApiResponseError = { error: 'InvalidParameters', message: 'date must be a valid ISO 8601 UTC string with Z' };
+        const e: ApiResponseError = { error: 'invalid_request', message: 'date must be a valid ISO 8601 UTC string with Z' };
         return res.status(400).json(e);
       }
       // convert to Colombia zone for calculations
@@ -48,13 +48,12 @@ router.get('/', async (req: Request, res: Response) => {
     const resultLocal = await calculateBusinessDate(start, days, hours);
 
     // Return result converted to UTC ISO with Z, no extra fields
-  const iso = resultLocal.setZone('utc').toISO({ suppressMilliseconds: true });
-  const resultUtcIso = iso ?? resultLocal.setZone('utc').toUTC().toISO() ?? '';
+  const resultUtcIso = resultLocal.setZone('utc').toISO({ suppressMilliseconds: true }) ?? resultLocal.toUTC().toISO({ suppressMilliseconds: true }) ?? '';
   const success: ApiResponseSuccess = { date: resultUtcIso };
     return res.status(200).json(success);
   } catch (err: any) {
-    const e: ApiResponseError = { error: 'InternalError', message: err?.message ?? 'Unknown error' };
-    return res.status(503).json(e);
+    const e: ApiResponseError = { error: 'internal_error', message: err?.message ?? 'Unknown error' };
+    return res.status(500).json(e);
   }
 });
 
