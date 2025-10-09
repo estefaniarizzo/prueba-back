@@ -49,10 +49,10 @@ router.get('/', async (req: Request, res: Response) => {
 
     // Return result converted to UTC ISO with Z, no extra fields
   const resultUtcIso = resultLocal.setZone('utc').toISO({ suppressMilliseconds: true }) ?? resultLocal.toUTC().toISO({ suppressMilliseconds: true }) ?? '';
-  const success: ApiResponseSuccess = { date: resultUtcIso };
+    const success: ApiResponseSuccess = { date: resultUtcIso };
     return res.status(200).json(success);
   } catch (err: any) {
-    const e: ApiResponseError = { error: 'internal_error', message: err?.message ?? 'Unknown error' };
+    const e: ApiResponseError = { error: 'InternalError', message: err?.message ?? 'Unknown error' };
     return res.status(500).json(e);
   }
 });
